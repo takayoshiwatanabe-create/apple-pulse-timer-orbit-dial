@@ -1,5 +1,11 @@
 import * as SQLite from "expo-sqlite";
-import type { TimerConfig, FocusSession, UserSettings, DailyStats, SessionType } from "@/types";
+import type {
+  TimerConfig,
+  FocusSession,
+  UserSettings,
+  DailyStats,
+  SessionType,
+} from "@/types";
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -8,6 +14,13 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     db = await SQLite.openDatabaseAsync("pulse_timer.db");
   }
   return db;
+}
+
+export async function closeDatabase(): Promise<void> {
+  if (db) {
+    await db.closeAsync();
+    db = null;
+  }
 }
 
 export async function initDatabase(): Promise<void> {
@@ -62,19 +75,57 @@ export async function initDatabase(): Promise<void> {
   `);
 }
 
-export async function getTimerConfigs(): Promise<TimerConfig[]> {
-  const database = await getDatabase();
-  const rows = await database.getAllAsync<{
-    id: number;
-    name: string;
-    focus_duration: number;
-    break_duration: number;
-    long_break_duration: number;
-    cycles_until_long_break: number;
-    created_at: string;
-  }>("SELECT * FROM timer_configs ORDER BY id");
+// ---------------------------------------------------------------------------
+// Row types for SQLite result mapping
+// ---------------------------------------------------------------------------
 
-  return rows.map((row) => ({
+interface TimerConfigRow {
+  id: number;
+  name: string;
+  focus_duration: number;
+  break_duration: number;
+  long_break_duration: number;
+  cycles_until_long_break: number;
+  created_at: string;
+}
+
+interface FocusSessionRow {
+  id: number;
+  config_id: number;
+  start_time: string;
+  end_time: string | null;
+  session_type: SessionType;
+  completed: number;
+  interruption_count: number;
+  created_at: string;
+}
+
+interface UserSettingsRow {
+  id: number;
+  haptic_enabled: number;
+  sound_enabled: number;
+  focus_mode_sync: number;
+  theme: string;
+  premium_active: number;
+  onboarding_completed: number;
+}
+
+interface DailyStatsRow {
+  id: number;
+  date: string;
+  total_focus_time: number;
+  sessions_completed: number;
+  sessions_interrupted: number;
+  streak_days: number;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Row → model mappers
+// ---------------------------------------------------------------------------
+
+function mapTimerConfigRow(row: TimerConfigRow): TimerConfig {
+  return {
     id: row.id,
     name: row.name,
     focusDuration: row.focus_duration,
@@ -82,7 +133,55 @@ export async function getTimerConfigs(): Promise<TimerConfig[]> {
     longBreakDuration: row.long_break_duration,
     cyclesUntilLongBreak: row.cycles_until_long_break,
     createdAt: row.created_at,
-  }));
+  };
+}
+
+function mapFocusSessionRow(row: FocusSessionRow): FocusSession {
+  return {
+    id: row.id,
+    configId: row.config_id,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    sessionType: row.session_type,
+    completed: Boolean(row.completed),
+    interruptionCount: row.interruption_count,
+    createdAt: row.created_at,
+  };
+}
+
+function mapDailyStatsRow(row: DailyStatsRow): DailyStats {
+  return {
+    id: row.id,
+    date: row.date,
+    totalFocusTime: row.total_focus_time,
+    sessionsCompleted: row.sessions_completed,
+    sessionsInterrupted: row.sessions_interrupted,
+    streakDays: row.streak_days,
+    createdAt: row.created_at,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Timer Configs CRUD
+// ---------------------------------------------------------------------------
+
+export async function getTimerConfigs(): Promise<TimerConfig[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<TimerConfigRow>(
+    "SELECT * FROM timer_configs ORDER BY id"
+  );
+  return rows.map(mapTimerConfigRow);
+}
+
+export async function getTimerConfigById(
+  id: number
+): Promise<TimerConfig | null> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<TimerConfigRow>(
+    "SELECT * FROM timer_configs WHERE id = ?",
+    id
+  );
+  return row ? mapTimerConfigRow(row) : null;
 }
 
 export async function saveTimerConfig(
@@ -100,6 +199,53 @@ export async function saveTimerConfig(
   );
   return result.lastInsertRowId;
 }
+
+export async function updateTimerConfig(
+  id: number,
+  config: Partial<Omit<TimerConfig, "id" | "createdAt">>
+): Promise<void> {
+  const database = await getDatabase();
+  const updates: string[] = [];
+  const values: (string | number)[] = [];
+
+  if (config.name !== undefined) {
+    updates.push("name = ?");
+    values.push(config.name);
+  }
+  if (config.focusDuration !== undefined) {
+    updates.push("focus_duration = ?");
+    values.push(config.focusDuration);
+  }
+  if (config.breakDuration !== undefined) {
+    updates.push("break_duration = ?");
+    values.push(config.breakDuration);
+  }
+  if (config.longBreakDuration !== undefined) {
+    updates.push("long_break_duration = ?");
+    values.push(config.longBreakDuration);
+  }
+  if (config.cyclesUntilLongBreak !== undefined) {
+    updates.push("cycles_until_long_break = ?");
+    values.push(config.cyclesUntilLongBreak);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE timer_configs SET ${updates.join(", ")} WHERE id = ?`,
+      ...values
+    );
+  }
+}
+
+export async function deleteTimerConfig(id: number): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync("DELETE FROM timer_configs WHERE id = ?", id);
+}
+
+// ---------------------------------------------------------------------------
+// Focus Sessions CRUD
+// ---------------------------------------------------------------------------
 
 export async function saveFocusSession(
   session: Pick<FocusSession, "configId" | "startTime" | "sessionType">
@@ -122,24 +268,64 @@ export async function completeFocusSession(
 ): Promise<void> {
   const database = await getDatabase();
   await database.runAsync(
-    `UPDATE focus_sessions SET end_time = datetime('now'), completed = ?, interruption_count = ? WHERE id = ?`,
+    `UPDATE focus_sessions
+     SET end_time = datetime('now'), completed = ?, interruption_count = ?
+     WHERE id = ?`,
     completed ? 1 : 0,
     interruptionCount,
     sessionId
   );
 }
 
+export async function getFocusSessionById(
+  id: number
+): Promise<FocusSession | null> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<FocusSessionRow>(
+    "SELECT * FROM focus_sessions WHERE id = ?",
+    id
+  );
+  return row ? mapFocusSessionRow(row) : null;
+}
+
+export async function getFocusSessionsByDate(
+  date: string
+): Promise<FocusSession[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<FocusSessionRow>(
+    "SELECT * FROM focus_sessions WHERE date(start_time) = ? ORDER BY start_time DESC",
+    date
+  );
+  return rows.map(mapFocusSessionRow);
+}
+
+export async function getFocusSessionsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<FocusSession[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<FocusSessionRow>(
+    "SELECT * FROM focus_sessions WHERE date(start_time) BETWEEN ? AND ? ORDER BY start_time DESC",
+    startDate,
+    endDate
+  );
+  return rows.map(mapFocusSessionRow);
+}
+
+export async function deleteFocusSession(id: number): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync("DELETE FROM focus_sessions WHERE id = ?", id);
+}
+
+// ---------------------------------------------------------------------------
+// User Settings CRUD
+// ---------------------------------------------------------------------------
+
 export async function getUserSettings(): Promise<UserSettings> {
   const database = await getDatabase();
-  const row = await database.getFirstAsync<{
-    id: number;
-    haptic_enabled: number;
-    sound_enabled: number;
-    focus_mode_sync: number;
-    theme: string;
-    premium_active: number;
-    onboarding_completed: number;
-  }>("SELECT * FROM user_settings WHERE id = 1");
+  const row = await database.getFirstAsync<UserSettingsRow>(
+    "SELECT * FROM user_settings WHERE id = 1"
+  );
 
   if (!row) {
     return {
@@ -204,55 +390,30 @@ export async function updateUserSettings(
   }
 }
 
-export async function getDailyStats(date: string): Promise<DailyStats | null> {
+// ---------------------------------------------------------------------------
+// Daily Stats CRUD
+// ---------------------------------------------------------------------------
+
+export async function getDailyStats(
+  date: string
+): Promise<DailyStats | null> {
   const database = await getDatabase();
-  const row = await database.getFirstAsync<{
-    id: number;
-    date: string;
-    total_focus_time: number;
-    sessions_completed: number;
-    sessions_interrupted: number;
-    streak_days: number;
-    created_at: string;
-  }>("SELECT * FROM daily_stats WHERE date = ?", date);
-
-  if (!row) return null;
-
-  return {
-    id: row.id,
-    date: row.date,
-    totalFocusTime: row.total_focus_time,
-    sessionsCompleted: row.sessions_completed,
-    sessionsInterrupted: row.sessions_interrupted,
-    streakDays: row.streak_days,
-    createdAt: row.created_at,
-  };
+  const row = await database.getFirstAsync<DailyStatsRow>(
+    "SELECT * FROM daily_stats WHERE date = ?",
+    date
+  );
+  return row ? mapDailyStatsRow(row) : null;
 }
 
-export async function getWeeklyStats(startDate: string): Promise<DailyStats[]> {
+export async function getWeeklyStats(
+  startDate: string
+): Promise<DailyStats[]> {
   const database = await getDatabase();
-  const rows = await database.getAllAsync<{
-    id: number;
-    date: string;
-    total_focus_time: number;
-    sessions_completed: number;
-    sessions_interrupted: number;
-    streak_days: number;
-    created_at: string;
-  }>(
+  const rows = await database.getAllAsync<DailyStatsRow>(
     "SELECT * FROM daily_stats WHERE date >= ? ORDER BY date ASC LIMIT 7",
     startDate
   );
-
-  return rows.map((row) => ({
-    id: row.id,
-    date: row.date,
-    totalFocusTime: row.total_focus_time,
-    sessionsCompleted: row.sessions_completed,
-    sessionsInterrupted: row.sessions_interrupted,
-    streakDays: row.streak_days,
-    createdAt: row.created_at,
-  }));
+  return rows.map(mapDailyStatsRow);
 }
 
 export async function upsertDailyStats(
@@ -261,9 +422,26 @@ export async function upsertDailyStats(
   completed: boolean
 ): Promise<void> {
   const database = await getDatabase();
+
+  const previousDay = new Date(date);
+  previousDay.setDate(previousDay.getDate() - 1);
+  const previousDateStr = previousDay.toISOString().split("T")[0];
+
+  const prevRow = await database.getFirstAsync<DailyStatsRow>(
+    "SELECT * FROM daily_stats WHERE date = ?",
+    previousDateStr
+  );
+  const prevStreak = prevRow ? prevRow.streak_days : 0;
+
+  const currentRow = await database.getFirstAsync<DailyStatsRow>(
+    "SELECT * FROM daily_stats WHERE date = ?",
+    date
+  );
+  const newStreak = currentRow ? currentRow.streak_days : prevStreak + 1;
+
   await database.runAsync(
-    `INSERT INTO daily_stats (date, total_focus_time, sessions_completed, sessions_interrupted)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO daily_stats (date, total_focus_time, sessions_completed, sessions_interrupted, streak_days)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(date) DO UPDATE SET
        total_focus_time = total_focus_time + excluded.total_focus_time,
        sessions_completed = sessions_completed + excluded.sessions_completed,
@@ -271,6 +449,28 @@ export async function upsertDailyStats(
     date,
     focusMinutes,
     completed ? 1 : 0,
-    completed ? 0 : 1
+    completed ? 0 : 1,
+    newStreak
   );
+}
+
+// ---------------------------------------------------------------------------
+// Data management (GDPR / reset)
+// ---------------------------------------------------------------------------
+
+export async function deleteAllUserData(): Promise<void> {
+  const database = await getDatabase();
+  await database.execAsync(`
+    DELETE FROM focus_sessions;
+    DELETE FROM daily_stats;
+    DELETE FROM timer_configs WHERE id != 1;
+    UPDATE user_settings SET
+      haptic_enabled = 1,
+      sound_enabled = 1,
+      focus_mode_sync = 0,
+      theme = 'auto',
+      premium_active = 0,
+      onboarding_completed = 0
+    WHERE id = 1;
+  `);
 }

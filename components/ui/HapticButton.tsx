@@ -1,26 +1,41 @@
-import { Pressable, StyleSheet, Text, type ViewStyle, type TextStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  type ViewStyle,
+  type TextStyle,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import type { ReactNode } from "react";
 import { useHaptic } from "@/hooks/useHaptic";
+import { useAppColors } from "@/hooks/useColorScheme";
+import { Layout } from "@/constants/Layout";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+const SPRING_CONFIG = { damping: 15, stiffness: 300 };
+
+type ButtonVariant = "primary" | "secondary" | "ghost";
+
 interface HapticButtonProps {
   onPress: () => void;
-  label: string;
+  label?: string;
+  children?: ReactNode;
   style?: ViewStyle;
   textStyle?: TextStyle;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: ButtonVariant;
   accessibilityLabel?: string;
 }
 
 export function HapticButton({
   onPress,
   label,
+  children,
   style,
   textStyle,
   disabled = false,
@@ -29,23 +44,33 @@ export function HapticButton({
 }: HapticButtonProps) {
   const scale = useSharedValue(1);
   const haptic = useHaptic();
+  const colors = useAppColors();
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+    scale.value = withSpring(0.95, SPRING_CONFIG);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    scale.value = withSpring(1, SPRING_CONFIG);
   };
 
   const handlePress = () => {
-    haptic.light();
+    if (variant === "primary") {
+      haptic.medium();
+    } else if (variant === "secondary") {
+      haptic.light();
+    } else {
+      haptic.selection();
+    }
     onPress();
   };
+
+  const variantContainerStyle = getVariantContainerStyle(variant, colors);
+  const variantTextColor = getVariantTextColor(variant, colors);
 
   return (
     <AnimatedPressable
@@ -55,9 +80,7 @@ export function HapticButton({
       disabled={disabled}
       style={[
         styles.base,
-        variant === "primary" && styles.primary,
-        variant === "secondary" && styles.secondary,
-        variant === "ghost" && styles.ghost,
+        variantContainerStyle,
         disabled && styles.disabled,
         animatedStyle,
         style,
@@ -66,58 +89,69 @@ export function HapticButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled }}
     >
-      <Text
-        style={[
-          styles.text,
-          variant === "primary" && styles.primaryText,
-          variant === "secondary" && styles.secondaryText,
-          variant === "ghost" && styles.ghostText,
-          disabled && styles.disabledText,
-          textStyle,
-        ]}
-      >
-        {label}
-      </Text>
+      {children}
+      {label != null && (
+        <Text
+          style={[
+            styles.text,
+            { color: variantTextColor },
+            disabled && { color: colors.disabled },
+            textStyle,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
     </AnimatedPressable>
   );
 }
 
+function getVariantContainerStyle(
+  variant: ButtonVariant,
+  colors: ReturnType<typeof useAppColors>
+): ViewStyle {
+  switch (variant) {
+    case "primary":
+      return { backgroundColor: colors.tint };
+    case "secondary":
+      return {
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderColor: colors.tint,
+      };
+    case "ghost":
+      return { backgroundColor: "transparent" };
+  }
+}
+
+function getVariantTextColor(
+  variant: ButtonVariant,
+  colors: ReturnType<typeof useAppColors>
+): string {
+  switch (variant) {
+    case "primary":
+      return "#FFFFFF";
+    case "secondary":
+    case "ghost":
+      return colors.tint;
+  }
+}
+
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 14,
+    paddingVertical: Layout.spacing.md - 2,
+    paddingHorizontal: Layout.spacing.lg + 4,
+    borderRadius: Layout.borderRadius.lg - 2,
     alignItems: "center",
     justifyContent: "center",
-  },
-  primary: {
-    backgroundColor: "#FF6B35",
-  },
-  secondary: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: "#FF6B35",
-  },
-  ghost: {
-    backgroundColor: "transparent",
+    flexDirection: "row",
+    gap: Layout.spacing.sm,
   },
   disabled: {
     opacity: 0.4,
   },
   text: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  primaryText: {
-    color: "#FFFFFF",
-  },
-  secondaryText: {
-    color: "#FF6B35",
-  },
-  ghostText: {
-    color: "#FF6B35",
-  },
-  disabledText: {
-    color: "#8E8E93",
+    fontSize: Layout.fontSize.md,
+    fontWeight: Layout.fontWeight.semibold,
   },
 });

@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { SessionType, TimerConfig } from "@/types";
 import { DEFAULT_CONFIG } from "@/constants/Timer";
+import {
+  saveFocusSession,
+  completeFocusSession,
+} from "@/utils/database";
 
 interface TimerStore {
   isRunning: boolean;
@@ -11,19 +15,23 @@ interface TimerStore {
   config: TimerConfig;
   currentSessionId: number | null;
   interruptionCount: number;
+  startTime: string | null;
 
-  startTimer: () => void;
+  startTimer: () => Promise<void>;
   pauseTimer: () => void;
-  resetTimer: () => void;
-  tick: () => void;
+  resetTimer: () => Promise<void>;
+  tick: () => boolean;
+  completeSession: () => Promise<void>;
   switchSession: () => void;
   updateConfig: (config: Partial<TimerConfig>) => void;
   setTimeRemaining: (seconds: number) => void;
-  setCurrentSessionId: (id: number | null) => void;
   incrementInterruptions: () => void;
 }
 
-function getDurationForSession(session: SessionType, config: TimerConfig): number {
+function getDurationForSession(
+  session: SessionType,
+  config: TimerConfig
+): number {
   switch (session) {
     case "focus":
       return config.focusDuration * 60;
@@ -43,19 +51,44 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   config: DEFAULT_CONFIG,
   currentSessionId: null,
   interruptionCount: 0,
+  startTime: null,
 
-  startTimer: () => set({ isRunning: true }),
+  startTimer: async () => {
+    const state = get();
+    if (state.isRunning) return;
+
+    let sessionId = state.currentSessionId;
+    if (sessionId === null) {
+      const now = new Date().toISOString();
+      sessionId = await saveFocusSession({
+        configId: state.config.id,
+        startTime: now,
+        sessionType: state.currentSession,
+      });
+      set({ currentSessionId: sessionId, startTime: now });
+    }
+
+    set({ isRunning: true });
+  },
 
   pauseTimer: () => {
     const state = get();
+    if (!state.isRunning) return;
     set({
       isRunning: false,
       interruptionCount: state.interruptionCount + 1,
     });
   },
 
-  resetTimer: () => {
+  resetTimer: async () => {
     const state = get();
+    if (state.currentSessionId !== null) {
+      await completeFocusSession(
+        state.currentSessionId,
+        false,
+        state.interruptionCount
+      );
+    }
     const duration = getDurationForSession(state.currentSession, state.config);
     set({
       isRunning: false,
@@ -63,13 +96,34 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       totalDuration: duration,
       interruptionCount: 0,
       currentSessionId: null,
+      startTime: null,
     });
   },
 
   tick: () => {
     const state = get();
-    if (!state.isRunning || state.timeRemaining <= 0) return;
-    set({ timeRemaining: state.timeRemaining - 1 });
+    if (!state.isRunning || state.timeRemaining <= 0) return false;
+
+    const next = state.timeRemaining - 1;
+    set({ timeRemaining: next });
+    return next <= 0;
+  },
+
+  completeSession: async () => {
+    const state = get();
+    if (state.currentSessionId !== null) {
+      await completeFocusSession(
+        state.currentSessionId,
+        true,
+        state.interruptionCount
+      );
+    }
+    set({
+      isRunning: false,
+      currentSessionId: null,
+      startTime: null,
+      interruptionCount: 0,
+    });
   },
 
   switchSession: () => {
@@ -96,24 +150,23 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       isRunning: false,
       interruptionCount: 0,
       currentSessionId: null,
+      startTime: null,
     });
   },
 
   updateConfig: (partial) => {
     const state = get();
+    if (state.isRunning) return;
     const newConfig = { ...state.config, ...partial };
     const duration = getDurationForSession(state.currentSession, newConfig);
     set({
       config: newConfig,
       timeRemaining: duration,
       totalDuration: duration,
-      isRunning: false,
     });
   },
 
-  setTimeRemaining: (seconds) => set({ timeRemaining: seconds }),
-
-  setCurrentSessionId: (id) => set({ currentSessionId: id }),
+  setTimeRemaining: (seconds) => set({ timeRemaining: Math.max(0, seconds) }),
 
   incrementInterruptions: () =>
     set((state) => ({ interruptionCount: state.interruptionCount + 1 })),

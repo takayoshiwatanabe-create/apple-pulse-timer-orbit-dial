@@ -4,10 +4,6 @@ import { useTimerStore } from "@/stores/timerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useStatsStore } from "@/stores/statsStore";
 import {
-  saveFocusSession,
-  completeFocusSession,
-} from "@/utils/database";
-import {
   scheduleTimerNotification,
   cancelScheduledNotification,
 } from "@/utils/notifications";
@@ -25,15 +21,13 @@ export function useTimer() {
     totalDuration,
     cycleCount,
     config,
-    currentSessionId,
-    interruptionCount,
     startTimer: storeStart,
     pauseTimer: storePause,
     resetTimer: storeReset,
+    completeSession,
     tick,
     switchSession,
     setTimeRemaining,
-    setCurrentSessionId,
   } = useTimerStore();
 
   const hapticEnabled = useSettingsStore((s) => s.hapticEnabled);
@@ -54,22 +48,13 @@ export function useTimer() {
   }, []);
 
   const startTimer = useCallback(async () => {
-    if (!currentSessionId) {
-      const id = await saveFocusSession({
-        configId: config.id,
-        startTime: new Date().toISOString(),
-        sessionType: currentSession,
-      });
-      setCurrentSessionId(id);
-    }
+    await storeStart();
 
     notificationIdRef.current = await scheduleTimerNotification(
       currentSession,
       timeRemaining
     );
-
-    storeStart();
-  }, [currentSession, timeRemaining, config.id, currentSessionId, storeStart, setCurrentSessionId]);
+  }, [currentSession, timeRemaining, storeStart]);
 
   const pauseTimer = useCallback(async () => {
     storePause();
@@ -77,7 +62,7 @@ export function useTimer() {
   }, [storePause, cancelNotification]);
 
   const resetTimer = useCallback(async () => {
-    storeReset();
+    await storeReset();
     clearTickInterval();
     await cancelNotification();
   }, [storeReset, clearTickInterval, cancelNotification]);
@@ -90,9 +75,7 @@ export function useTimer() {
       notificationSuccess();
     }
 
-    if (currentSessionId) {
-      await completeFocusSession(currentSessionId, true, interruptionCount);
-    }
+    await completeSession();
 
     if (currentSession === "focus") {
       const focusMinutes = Math.round(totalDuration / 60);
@@ -104,8 +87,7 @@ export function useTimer() {
     clearTickInterval,
     cancelNotification,
     hapticEnabled,
-    currentSessionId,
-    interruptionCount,
+    completeSession,
     currentSession,
     totalDuration,
     recordSession,

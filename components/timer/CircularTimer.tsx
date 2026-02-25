@@ -1,6 +1,17 @@
 import { StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+  cancelAnimation,
+} from "react-native-reanimated";
+import { useEffect } from "react";
 import { ProgressRing } from "@/components/timer/ProgressRing";
 import { formatSeconds } from "@/utils/formatTime";
+import { useAppColors } from "@/hooks/useColorScheme";
 import type { SessionType } from "@/types";
 import { Layout } from "@/constants/Layout";
 
@@ -23,18 +34,55 @@ export function CircularTimer({
   sessionType,
   isRunning,
 }: CircularTimerProps) {
+  const colors = useAppColors();
+  const pulseScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (isRunning) {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.03, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      cancelAnimation(pulseScale);
+      pulseScale.value = withTiming(1, { duration: Layout.animation.fast });
+    }
+  }, [isRunning, pulseScale]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const sessionColor = colors[
+    sessionType === "focus"
+      ? "focusRing"
+      : sessionType === "break"
+        ? "breakRing"
+        : "longBreakRing"
+  ];
+
   return (
-    <View
-      style={styles.container}
+    <Animated.View
+      style={[styles.container, pulseStyle]}
       accessibilityLabel={`${SESSION_LABELS[sessionType]} timer: ${formatSeconds(timeRemaining)} remaining`}
     >
       <ProgressRing progress={progress} sessionType={sessionType} />
       <View style={styles.inner}>
-        <Text style={styles.sessionLabel}>{SESSION_LABELS[sessionType]}</Text>
-        <Text style={styles.time}>{formatSeconds(timeRemaining)}</Text>
-        <Text style={styles.status}>{isRunning ? "Running" : "Paused"}</Text>
+        <Text style={[styles.sessionLabel, { color: sessionColor }]}>
+          {SESSION_LABELS[sessionType]}
+        </Text>
+        <Text style={[styles.time, { color: colors.text }]}>
+          {formatSeconds(timeRemaining)}
+        </Text>
+        <Text style={[styles.status, { color: colors.textSecondary }]}>
+          {isRunning ? "Running" : "Paused"}
+        </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -52,21 +100,18 @@ const styles = StyleSheet.create({
   },
   sessionLabel: {
     fontSize: Layout.fontSize.sm,
-    fontWeight: "500",
-    color: "#8E8E93",
+    fontWeight: Layout.fontWeight.medium,
     textTransform: "uppercase",
     letterSpacing: 1.5,
     marginBottom: 4,
   },
   time: {
     fontSize: Layout.fontSize.timer,
-    fontWeight: "200",
+    fontWeight: Layout.fontWeight.regular,
     fontVariant: ["tabular-nums"],
-    color: "#FFFFFF",
   },
   status: {
     fontSize: Layout.fontSize.xs,
-    color: "#8E8E93",
     marginTop: 4,
   },
 });

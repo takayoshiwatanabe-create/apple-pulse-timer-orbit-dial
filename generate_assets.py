@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Auto-generated asset script for Apple Pulse Timer / Orbit Dial (theme: Warm Daily)"""
+"""Auto-generated asset script for クロノタイマー (theme: Warm Daily)"""
 from PIL import Image, ImageDraw, ImageFont
 import os
 
@@ -44,7 +44,7 @@ gradient(d, 1024, 1024, BG0, BG1)
 d.ellipse([312, 312, 712, 712], fill=PRIMARY)
 # App initial
 font_big = try_font(200)
-initial = "A"
+initial = "ク"
 bbox = d.textbbox((0, 0), initial, font=font_big)
 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
 d.text(((1024 - tw) // 2, (1024 - th) // 2 - 20), initial, fill=WHITE, font=font_big)
@@ -59,7 +59,7 @@ splash = Image.new("RGB", (1284, 2778))
 d = ImageDraw.Draw(splash)
 gradient(d, 1284, 2778, BG0, BG1)
 font_splash = try_font(80)
-name = "Apple Pulse Timer / Orbit Dial"
+name = "クロノタイマー"
 bbox = d.textbbox((0, 0), name, font=font_splash)
 tw = bbox[2] - bbox[0]
 d.text(((1284 - tw) // 2, 1300), name, fill=PRIMARY, font=font_splash)

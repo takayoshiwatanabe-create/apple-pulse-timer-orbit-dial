@@ -5,6 +5,7 @@ import type { SessionType } from "@/types";
 interface SandGradientProps {
   sessionType: SessionType;
   style?: ViewStyle;
+  opacity?: number;
 }
 
 const GRADIENT_COLORS: Record<SessionType, [string, string, ...string[]]> = {
@@ -13,13 +14,17 @@ const GRADIENT_COLORS: Record<SessionType, [string, string, ...string[]]> = {
   long_break: ["#5856D6", "#7D7AFF", "#A09EFF"],
 };
 
-export function SandGradient({ sessionType, style }: SandGradientProps) {
+export function SandGradient({
+  sessionType,
+  style,
+  opacity,
+}: SandGradientProps) {
   return (
     <LinearGradient
       colors={GRADIENT_COLORS[sessionType]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[styles.gradient, style]}
+      style={[styles.gradient, opacity !== undefined && { opacity }, style]}
     />
   );
 }

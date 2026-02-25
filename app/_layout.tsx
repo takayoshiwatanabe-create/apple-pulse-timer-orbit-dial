@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useColorScheme } from "react-native";
@@ -11,7 +11,10 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const theme = useSettingsStore((s) => s.theme);
+  const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
   const systemScheme = useColorScheme();
+  const router = useRouter();
+  const segments = useSegments();
 
   const resolvedScheme =
     theme === "auto" ? (systemScheme ?? "light") : theme;
@@ -25,6 +28,18 @@ export default function RootLayout() {
     }
     prepare();
   }, [loadSettings]);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const inOnboarding = segments[0] === "onboarding";
+
+    if (!onboardingCompleted && !inOnboarding) {
+      router.replace("/onboarding");
+    } else if (onboardingCompleted && inOnboarding) {
+      router.replace("/(tabs)");
+    }
+  }, [isReady, onboardingCompleted, segments, router]);
 
   if (!isReady) {
     return (
@@ -40,6 +55,7 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="onboarding/index" />
       </Stack>
       <StatusBar style={resolvedScheme === "dark" ? "light" : "dark"} />
     </>

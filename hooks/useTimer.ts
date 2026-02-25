@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { AppState } from "react-native";
+import { AppState, type AppStateStatus } from "react-native";
 import { useTimerStore } from "@/stores/timerStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useStatsStore } from "@/stores/statsStore";
@@ -33,6 +33,11 @@ export function useTimer() {
   const hapticEnabled = useSettingsStore((s) => s.hapticEnabled);
   const recordSession = useStatsStore((s) => s.recordSession);
 
+  const isRunningRef = useRef(isRunning);
+  const timeRemainingRef = useRef(timeRemaining);
+  isRunningRef.current = isRunning;
+  timeRemainingRef.current = timeRemaining;
+
   const clearTickInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -48,13 +53,14 @@ export function useTimer() {
   }, []);
 
   const startTimer = useCallback(async () => {
+    const state = useTimerStore.getState();
     await storeStart();
 
     notificationIdRef.current = await scheduleTimerNotification(
-      currentSession,
-      timeRemaining
+      state.currentSession,
+      state.timeRemaining
     );
-  }, [currentSession, timeRemaining, storeStart]);
+  }, [storeStart]);
 
   const pauseTimer = useCallback(async () => {
     storePause();
@@ -75,10 +81,11 @@ export function useTimer() {
       notificationSuccess();
     }
 
+    const state = useTimerStore.getState();
     await completeSession();
 
-    if (currentSession === "focus") {
-      const focusMinutes = Math.round(totalDuration / 60);
+    if (state.currentSession === "focus") {
+      const focusMinutes = Math.round(state.totalDuration / 60);
       await recordSession(focusMinutes, true);
     }
 
@@ -88,8 +95,6 @@ export function useTimer() {
     cancelNotification,
     hapticEnabled,
     completeSession,
-    currentSession,
-    totalDuration,
     recordSession,
     switchSession,
   ]);
@@ -110,19 +115,29 @@ export function useTimer() {
   }, [isRunning, timeRemaining, handleSessionComplete]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "background" && isRunning) {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "background" && isRunningRef.current) {
         backgroundTimeRef.current = Date.now();
-      } else if (nextState === "active" && backgroundTimeRef.current && isRunning) {
-        const elapsed = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
+      } else if (
+        nextState === "active" &&
+        backgroundTimeRef.current &&
+        isRunningRef.current
+      ) {
+        const elapsed = Math.floor(
+          (Date.now() - backgroundTimeRef.current) / 1000
+        );
         backgroundTimeRef.current = null;
-        const newTime = Math.max(0, timeRemaining - elapsed);
+        const newTime = Math.max(0, timeRemainingRef.current - elapsed);
         setTimeRemaining(newTime);
       }
-    });
+    };
 
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange
+    );
     return () => subscription.remove();
-  }, [isRunning, timeRemaining, setTimeRemaining]);
+  }, [setTimeRemaining]);
 
   const progress = totalDuration > 0 ? 1 - timeRemaining / totalDuration : 0;
 

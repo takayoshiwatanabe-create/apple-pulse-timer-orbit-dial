@@ -6,6 +6,7 @@ interface UseFlipGestureOptions {
   onFlipUp: () => void;
   enabled?: boolean;
   threshold?: number;
+  cooldownMs?: number;
 }
 
 export function useFlipGesture({
@@ -13,8 +14,10 @@ export function useFlipGesture({
   onFlipUp,
   enabled = true,
   threshold = 0.8,
+  cooldownMs = 500,
 }: UseFlipGestureOptions) {
   const isFaceDownRef = useRef(false);
+  const lastFlipTimeRef = useRef(0);
   const onFlipDownRef = useRef(onFlipDown);
   const onFlipUpRef = useRef(onFlipUp);
 
@@ -27,26 +30,38 @@ export function useFlipGesture({
 
       const { gamma } = data.rotation;
       const faceDown = Math.abs(gamma) > threshold * Math.PI;
+      const now = Date.now();
 
       if (faceDown && !isFaceDownRef.current) {
+        if (now - lastFlipTimeRef.current < cooldownMs) return;
         isFaceDownRef.current = true;
+        lastFlipTimeRef.current = now;
         onFlipDownRef.current();
       } else if (!faceDown && isFaceDownRef.current) {
+        if (now - lastFlipTimeRef.current < cooldownMs) return;
         isFaceDownRef.current = false;
+        lastFlipTimeRef.current = now;
         onFlipUpRef.current();
       }
     },
-    [threshold]
+    [threshold, cooldownMs]
   );
 
   useEffect(() => {
     if (!enabled) return;
 
-    DeviceMotion.setUpdateInterval(200);
-    const subscription = DeviceMotion.addListener(handleMotionData);
+    let cancelled = false;
+    let subscription: ReturnType<typeof DeviceMotion.addListener> | null = null;
+
+    DeviceMotion.isAvailableAsync().then((available) => {
+      if (cancelled || !available) return;
+      DeviceMotion.setUpdateInterval(200);
+      subscription = DeviceMotion.addListener(handleMotionData);
+    });
 
     return () => {
-      subscription.remove();
+      cancelled = true;
+      subscription?.remove();
     };
   }, [enabled, handleMotionData]);
 }

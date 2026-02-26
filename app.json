@@ -16,7 +16,9 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSMotionUsageDescription": "このアプリは、タイマー操作のためにデバイスのフリップを検出するためにモーションセンサーを使用します。",
-        "BGTaskSchedulerPermittedIdentifiers": ["$(PRODUCT_BUNDLE_IDENTIFIER).background-task"],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "$(PRODUCT_BUNDLE_IDENTIFIER).background-task"
+        ],
         "NSSiriUsageDescription": "Siriを使ってタイマーを開始、一時停止、リセットできます。",
         "NSUserNotificationsUsageDescription": "タイマーの終了や休憩のリマインダーのために通知を送信します。"
       }
@@ -47,7 +49,9 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/sounds/timer-complete.wav"]
+          "sounds": [
+            "./assets/sounds/timer-complete.wav"
+          ]
         }
       ]
     ],

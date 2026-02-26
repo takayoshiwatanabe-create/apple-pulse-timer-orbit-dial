@@ -9,7 +9,6 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "description": "Apple Pulse Timer / Orbit Dialは、深い集中と生産性を追求するためのミニマルなタイマーアプリです。触覚的なフィードバックと直感的な操作で、デジタルデトックスを促し、あなたのフロー状態をサポートします。ポモドーロテクニックやカスタムタイマーで、仕事、学習、瞑想など、あらゆる活動の質を高めましょう。洗練されたデザインとAppleエコシステムとのシームレスな統合で、集中力を次のレベルへと引き上げます。",
-    "privacyPolicyUrl": "https://yourcompany.com/privacy",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zerocode.applepulsetimerorbitdial",

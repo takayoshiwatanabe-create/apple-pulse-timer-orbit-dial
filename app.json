@@ -59,6 +59,15 @@
       "image": "./assets/splash.png",
       "backgroundColor": "#FFFBEB",
       "resizeMode": "contain"
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "e2588e7c-d3de-4da1-89d2-4a9a3d0c4ec9"
+      }
+    },
+    "owner": "yoshi-san"
   }
 }

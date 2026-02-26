@@ -7,6 +7,7 @@ import {
   View,
   Pressable,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
@@ -166,14 +167,15 @@ interface SettingRowProps {
   title: string;
   subtitle?: string;
   right: React.ReactNode;
+  onPress?: () => void; // Added for tappable rows
 }
 
-function SettingRow({ icon, title, subtitle, right }: SettingRowProps) {
+function SettingRow({ icon, title, subtitle, right, onPress }: SettingRowProps) {
   const colors = useAppColors();
-  return (
+  const content = (
     <View
       style={[styles.row, { borderBottomColor: colors.separator }]}
-      accessibilityRole="none"
+      accessibilityRole={onPress ? "button" : "none"}
     >
       <View style={styles.rowLeft}>
         <View style={styles.iconContainer}>{icon}</View>
@@ -189,6 +191,8 @@ function SettingRow({ icon, title, subtitle, right }: SettingRowProps) {
       <View style={styles.rowRight}>{right}</View>
     </View>
   );
+
+  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
 }
 
 export default function SettingsScreen() {
@@ -234,6 +238,15 @@ export default function SettingsScreen() {
     },
     [haptic, theme, updateSettings],
   );
+
+  const handleUpgradePress = useCallback(() => {
+    haptic.medium();
+    // TODO: Implement StoreKit/IAP for premium features
+    Alert.alert(
+      "Premium Features",
+      "Unlock advanced timer configurations, custom themes, and more! (In-App Purchase coming soon)"
+    );
+  }, [haptic]);
 
   return (
     <ScrollView
@@ -389,6 +402,7 @@ export default function SettingsScreen() {
           icon={<CrownIcon color={colors.premiumAccent} size={20} />}
           title="Premium"
           subtitle={premiumActive ? "Active" : "Unlock all features"}
+          onPress={!premiumActive ? handleUpgradePress : undefined}
           right={
             premiumActive ? (
               <View
@@ -402,6 +416,7 @@ export default function SettingsScreen() {
               </View>
             ) : (
               <Pressable
+                onPress={handleUpgradePress}
                 style={[
                   styles.upgradeButton,
                   { backgroundColor: colors.premiumAccent },
@@ -524,3 +539,4 @@ const styles = StyleSheet.create({
     marginTop: Layout.spacing.xl,
   },
 });
+

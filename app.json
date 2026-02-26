@@ -8,16 +8,31 @@
     "scheme": "applepulsetimerorbitdial",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "Apple Pulse Timer / Orbit Dialは、深い集中と生産性を追求するためのミニマルなタイマーアプリです。触覚的なフィードバックと直感的な操作で、デジタルデトックスを促し、あなたのフロー状態をサポートします。ポモドーロテクニックやカスタムタイマーで、仕事、学習、瞑想など、あらゆる活動の質を高めましょう。洗練されたデザインとAppleエコシステムとのシームレスな統合で、集中力を次のレベルへと引き上げます。",
+    "privacyPolicyUrl": "https://yourcompany.com/privacy",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.zerocode.applepulsetimerorbitdial"
+      "bundleIdentifier": "com.zerocode.applepulsetimerorbitdial",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSMotionUsageDescription": "このアプリは、タイマー操作のためにデバイスのフリップを検出するためにモーションセンサーを使用します。",
+        "BGTaskSchedulerPermittedIdentifiers": ["$(PRODUCT_BUNDLE_IDENTIFIER).background-task"],
+        "NSSiriUsageDescription": "Siriを使ってタイマーを開始、一時停止、リセットできます。",
+        "NSUserNotificationsUsageDescription": "タイマーの終了や休憩のリマインダーのために通知を送信します。"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.zerocode.applepulsetimerorbitdial"
+      "package": "com.zerocode.applepulsetimerorbitdial",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -26,11 +41,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/sounds/timer-complete.wav"]
+        }
+      ]
     ],
     "splash": {
       "image": "./assets/splash.png",
-      "backgroundColor": "#FFFBEB"
+      "backgroundColor": "#FFFBEB",
+      "resizeMode": "contain"
     }
   }
 }

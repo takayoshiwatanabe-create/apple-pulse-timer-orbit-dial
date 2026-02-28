@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { useAppColors } from "@/hooks/useColorScheme";
 import { useStatsStore } from "@/stores/statsStore";
+import { AdBanner } from "@/components/ads/AdBanner";
 import { SandGradient } from "@/components/ui/SandGradient";
 import { Layout } from "@/constants/Layout";
 import { formatMinutes, getWeekStartDate } from "@/utils/formatTime";
@@ -279,6 +280,8 @@ export default function StatsScreen() {
           </Text>
         </View>
       </View>
+
+      <AdBanner />
     </ScrollView>
   );
 }

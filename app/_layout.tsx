@@ -6,6 +6,7 @@ import { useColorScheme } from "react-native";
 import { initDatabase } from "@/utils/database";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { Colors } from "@/constants/Colors";
+import { useReviewPrompt } from "@/hooks/useReviewPrompt";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -15,6 +16,8 @@ export default function RootLayout() {
   const systemScheme = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
+
+  useReviewPrompt();
 
   const resolvedScheme =
     theme === "auto" ? (systemScheme ?? "light") : theme;

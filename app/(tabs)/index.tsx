@@ -8,6 +8,7 @@ import { useTimerStore } from "@/stores/timerStore";
 import { CircularTimer } from "@/components/timer/CircularTimer";
 import { RotaryBezel } from "@/components/timer/RotaryBezel";
 import { HapticButton } from "@/components/ui/HapticButton";
+import { AdBanner } from "@/components/ads/AdBanner";
 import { Layout } from "@/constants/Layout";
 import {
   MIN_FOCUS_DURATION,
@@ -148,6 +149,8 @@ export default function TimerScreen() {
           ? "Flip device to pause"
           : "Rotate bezel to adjust \u2022 Flip to start"}
       </Text>
+
+      <AdBanner />
     </View>
   );
 }

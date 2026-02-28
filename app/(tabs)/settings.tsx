@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useAppColors } from "@/hooks/useColorScheme";
+import { AdBanner } from "@/components/ads/AdBanner";
 import { useHaptic } from "@/hooks/useHaptic";
 import { Layout } from "@/constants/Layout";
 import type { ThemeMode } from "@/types";
@@ -434,6 +435,8 @@ export default function SettingsScreen() {
       <Text style={[styles.versionText, { color: colors.textTertiary }]}>
         Apple Pulse Timer v1.0.0
       </Text>
+
+      <AdBanner />
     </ScrollView>
   );
 }

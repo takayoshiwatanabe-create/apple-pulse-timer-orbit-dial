@@ -8,6 +8,7 @@ import {
   cancelScheduledNotification,
 } from "@/utils/notifications";
 import { notificationSuccess } from "@/utils/haptics";
+import { playTimerComplete } from "@/utils/sounds";
 
 export function useTimer() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -31,6 +32,7 @@ export function useTimer() {
   } = useTimerStore();
 
   const hapticEnabled = useSettingsStore((s) => s.hapticEnabled);
+  const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const recordSession = useStatsStore((s) => s.recordSession);
 
   const isRunningRef = useRef(isRunning);
@@ -81,6 +83,10 @@ export function useTimer() {
       notificationSuccess();
     }
 
+    if (soundEnabled) {
+      await playTimerComplete();
+    }
+
     const state = useTimerStore.getState();
     await completeSession();
 
@@ -94,6 +100,7 @@ export function useTimer() {
     clearTickInterval,
     cancelNotification,
     hapticEnabled,
+    soundEnabled,
     completeSession,
     recordSession,
     switchSession,

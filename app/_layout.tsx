@@ -3,10 +3,13 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useColorScheme } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import { initDatabase } from "@/utils/database";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { Colors } from "@/constants/Colors";
 import { useReviewPrompt } from "@/hooks/useReviewPrompt";
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -28,6 +31,7 @@ export default function RootLayout() {
       await initDatabase();
       await loadSettings();
       setIsReady(true);
+      SplashScreen.hideAsync();
     }
     prepare();
   }, [loadSettings]);

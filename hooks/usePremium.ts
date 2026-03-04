@@ -4,16 +4,13 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 const PRODUCT_ID = "com.zerocode.applepulsetimerorbitdial.premium";
 
-type IAPModule = typeof import("react-native-iap");
-let iapModule: IAPModule | null = null;
+let iapModule: typeof import("react-native-iap") | null = null;
 
-async function loadIAP(): Promise<IAPModule | null> {
-  if (iapModule) return iapModule;
+async function loadIAP() {
   try {
-    iapModule = await (import("react-native-iap") as Promise<IAPModule>);
-    return iapModule;
+    iapModule = await import("react-native-iap");
   } catch {
-    return null;
+    // IAP not available (Expo Go or dev)
   }
 }
 
@@ -23,7 +20,9 @@ export function usePremium() {
   const [isIAPReady, setIsIAPReady] = useState(false);
   const [price, setPrice] = useState<string>("¥300");
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const listenerRef = useRef<{ remove: () => void } | null>(null);
+  const listenerRef = useRef<ReturnType<
+    typeof import("react-native-iap").purchaseUpdatedListener
+  > | null>(null);
 
   const setPremium = useCallback(async () => {
     await updateSettings({ premiumActive: true });
@@ -39,35 +38,72 @@ export function usePremium() {
 
   const initIAP = async () => {
     try {
-      const mod = await loadIAP();
-      if (!mod) return;
+      await loadIAP();
+      if (!iapModule) return;
 
-      await mod.initConnection();
+      await iapModule.initConnection();
+
+      // Flush stuck/pending transactions
+      try {
+        if (
+          Platform.OS === "ios" &&
+          typeof (iapModule as any).clearTransactionIOS === "function"
+        ) {
+          await (iapModule as any).clearTransactionIOS();
+        } else if (
+          Platform.OS === "android" &&
+          typeof (iapModule as any)
+            .flushFailedPurchasesCachedAsPendingAndroid === "function"
+        ) {
+          await (
+            iapModule as any
+          ).flushFailedPurchasesCachedAsPendingAndroid();
+        }
+      } catch (e) {
+        console.warn("Transaction flush error:", e);
+      }
 
       // Set up purchase listener
       if (!listenerRef.current) {
-        listenerRef.current = mod.purchaseUpdatedListener(async (purchase) => {
-          try {
-            if (purchase.productId === PRODUCT_ID) {
-              await mod.finishTransaction({ purchase });
-              await setPremium();
+        listenerRef.current = iapModule.purchaseUpdatedListener(
+          async (purchase) => {
+            try {
+              if (purchase.productId === PRODUCT_ID) {
+                await iapModule!.finishTransaction({ purchase });
+                await setPremium();
+              }
+            } catch (e) {
+              console.warn("Purchase listener error:", e);
             }
-          } catch (e) {
-            console.warn("Purchase listener error:", e);
           }
-        });
+        );
       }
 
       // Get product info
-      const products = await mod.fetchProducts({ skus: [PRODUCT_ID] });
-      if (products && products.length > 0) {
+      const products = await iapModule.getProducts({
+        skus: [PRODUCT_ID],
+      });
+      if (products.length > 0) {
         const p = products[0];
-        setPrice(p.displayPrice ?? "¥300");
+        let displayPrice = p.localizedPrice ?? "¥300";
+        try {
+          const numPrice = parseFloat(p.price);
+          if (p.currency && !isNaN(numPrice)) {
+            displayPrice = new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: p.currency,
+              minimumFractionDigits: p.currency === "JPY" ? 0 : 2,
+            }).format(numPrice);
+          }
+        } catch {
+          // fallback to localizedPrice
+        }
+        setPrice(displayPrice);
         setIsIAPReady(true);
       }
 
       // Check if already purchased
-      await restoreInner(mod);
+      await restoreInner();
     } catch (e) {
       console.warn("IAP init error:", e);
       iapModule = null;
@@ -75,27 +111,27 @@ export function usePremium() {
   };
 
   const retryGetProducts = async (): Promise<boolean> => {
-    const mod = await loadIAP();
+    if (!iapModule) await loadIAP();
+    const mod = iapModule;
     if (!mod) return false;
     try {
       await mod.initConnection();
-      const products = await mod.fetchProducts({ skus: [PRODUCT_ID] });
-      if (products && products.length > 0) {
-        setPrice(products[0].displayPrice ?? "¥300");
+      const products = await mod.getProducts({ skus: [PRODUCT_ID] });
+      if (products.length > 0) {
+        setPrice(products[0].localizedPrice ?? "¥300");
         setIsIAPReady(true);
         return true;
       }
     } catch (e) {
-      console.warn("IAP retry fetchProducts error:", e);
+      console.warn("IAP retry getProducts error:", e);
     }
     return false;
   };
 
-  const restoreInner = async (mod?: IAPModule | null) => {
-    const m = mod ?? iapModule;
-    if (!m) return;
+  const restoreInner = async () => {
+    if (!iapModule) return;
     try {
-      const purchases = await m.getAvailablePurchases();
+      const purchases = await iapModule.getAvailablePurchases();
       const hasPremium = purchases.some((p) => p.productId === PRODUCT_ID);
       if (hasPremium) {
         await setPremium();
@@ -130,19 +166,14 @@ export function usePremium() {
     }
 
     try {
-      const purchaseRequest =
-        Platform.OS === "ios"
-          ? {
-              apple: {
-                sku: PRODUCT_ID,
-                andDangerouslyFinishTransactionAutomatically: false,
-              },
-            }
-          : { google: { skus: [PRODUCT_ID] } };
-
       iapModule!
-        .requestPurchase({ request: purchaseRequest, type: "in-app" as const })
-        .catch((e: unknown) => {
+        .requestPurchase({
+          sku: PRODUCT_ID,
+          ...(Platform.OS === "ios"
+            ? { andDangerouslyFinishTransactionAutomaticallyIOS: false }
+            : {}),
+        })
+        .catch((e) => {
           console.warn("Purchase requestPurchase rejected:", e);
         });
       return true;

@@ -7,7 +7,7 @@ import {
   View,
   Pressable,
   Platform,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useAppColors } from "@/hooks/useColorScheme";
 import { AdBanner } from "@/components/ads/AdBanner";
 import { useHaptic } from "@/hooks/useHaptic";
+import { usePremium } from "@/hooks/usePremium";
 import { Layout } from "@/constants/Layout";
 import type { ThemeMode } from "@/types";
 
@@ -205,8 +206,8 @@ export default function SettingsScreen() {
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const focusModeSync = useSettingsStore((s) => s.focusModeSync);
   const theme = useSettingsStore((s) => s.theme);
-  const premiumActive = useSettingsStore((s) => s.premiumActive);
   const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const { isPremium, isIAPReady, isPurchasing, price, purchasePremium, restorePurchases } = usePremium();
 
   const handleToggleHaptic = useCallback(
     (value: boolean) => {
@@ -240,14 +241,15 @@ export default function SettingsScreen() {
     [haptic, theme, updateSettings],
   );
 
-  const handleUpgradePress = useCallback(() => {
+  const handleUpgradePress = useCallback(async () => {
     haptic.medium();
-    // TODO: Implement StoreKit/IAP for premium features
-    Alert.alert(
-      "Premium Features",
-      "Unlock advanced timer configurations, custom themes, and more! (In-App Purchase coming soon)"
-    );
-  }, [haptic]);
+    await purchasePremium();
+  }, [haptic, purchasePremium]);
+
+  const handleRestorePress = useCallback(async () => {
+    haptic.selection();
+    await restorePurchases();
+  }, [haptic, restorePurchases]);
 
   return (
     <ScrollView
@@ -390,7 +392,7 @@ export default function SettingsScreen() {
 
       {/* Premium */}
       <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-        Subscription
+        Premium
       </Text>
       <View
         style={[
@@ -402,10 +404,10 @@ export default function SettingsScreen() {
         <SettingRow
           icon={<CrownIcon color={colors.premiumAccent} size={20} />}
           title="Premium"
-          subtitle={premiumActive ? "Active" : "Unlock all features"}
-          onPress={!premiumActive ? handleUpgradePress : undefined}
+          subtitle={isPremium ? "Active" : `Ad-free & more — ${price}`}
+          onPress={!isPremium ? handleUpgradePress : undefined}
           right={
-            premiumActive ? (
+            isPremium ? (
               <View
                 style={[
                   styles.badge,
@@ -415,6 +417,8 @@ export default function SettingsScreen() {
               >
                 <Text style={styles.badgeText}>Active</Text>
               </View>
+            ) : isPurchasing ? (
+              <ActivityIndicator size="small" color={colors.premiumAccent} />
             ) : (
               <Pressable
                 onPress={handleUpgradePress}
@@ -430,13 +434,21 @@ export default function SettingsScreen() {
             )
           }
         />
+        {!isPremium && (
+          <SettingRow
+            icon={<View style={{ width: 20 }} />}
+            title="Restore Purchases"
+            right={<View />}
+            onPress={handleRestorePress}
+          />
+        )}
       </View>
 
       <Text style={[styles.versionText, { color: colors.textTertiary }]}>
         Apple Pulse Timer v1.0.0
       </Text>
 
-      <AdBanner />
+      {!isPremium && <AdBanner />}
     </ScrollView>
   );
 }

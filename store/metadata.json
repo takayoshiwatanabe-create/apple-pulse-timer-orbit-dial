@@ -1,13 +1,13 @@
 {
   "version": "1.0",
-  "generatedAt": "2026-03-02T09:32:30.321Z",
+  "generatedAt": "2026-03-02T11:57:21.813Z",
   "description": {
-    "ja": "Apple Pulse Timerは、集中力を高めるためのタイマーアプリです。ロータリーベゼルをドラッグしてフォーカス時間を設定し、デバイスを裏返すことでタイマーを開始・一時停止できます。セッションの終了時や休憩の開始時に通知を受け取ることができます。ハプティクスフィードバック、サウンド、iOSフォーカスモードとの同期、テーマ設定などのカスタマイズオプションが含まれています。日次および週次の統計で集中時間、完了したセッション、中断されたセッション、連続記録を確認できます。アプリには広告が表示されます。",
-    "en": "Apple Pulse Timer is a timer application designed to enhance focus. Drag the rotary bezel to set focus time, and flip the device face-down to start or pause the timer. Receive notifications when sessions end and breaks begin. Customization options include haptic feedback, sound, iOS Focus Mode synchronization, and theme settings. View daily and weekly statistics for focus time, completed sessions, interrupted sessions, and streaks. The app displays advertisements."
+    "ja": "Apple Pulse Timerは、集中力を高めるためのタイマーアプリです。ロータリーベゼルをドラッグしてタイマー時間を設定し、デバイスを裏返すことでタイマーを開始・一時停止できます。セッションの終了や休憩の開始時に通知を受け取ります。ハプティクスフィードバック、サウンドアラート、iOSフォーカスモードとの同期設定が含まれます。日次および週次の統計で集中時間、完了したセッション、中断されたセッション、連続記録を確認できます。アプリはダーク、ライト、自動のテーマをサポートしています。",
+    "en": "Apple Pulse Timer is a timer application designed to enhance focus. Users can set timer durations by dragging a rotary bezel and start or pause the timer by flipping the device face down or up. The app provides notifications for session endings and break starts. It includes settings for haptic feedback, sound alerts, and synchronization with iOS Focus Mode. Daily and weekly statistics display focus time, completed sessions, interrupted sessions, and streaks. The app supports dark, light, and automatic themes."
   },
   "keywords": {
-    "ja": "タイマー,集中,ポモドーロ,生産性,学習,仕事,休憩,統計,ハプティクス,通知,フォーカスモード",
-    "en": "timer,focus,pomodoro,productivity,study,work,break,statistics,haptics,notifications,focus mode"
+    "ja": "タイマー,集中,ポモドーロ,生産性,学習,仕事,休憩,ハプティクス,通知,統計,フォーカスモード",
+    "en": "timer,focus,pomodoro,productivity,study,work,break,haptics,notifications,statistics,focus mode"
   },
   "categories": {
     "primary": "UTILITIES",
@@ -39,17 +39,6 @@
     "dataCollected": true,
     "categories": [
       {
-        "category": "ADVERTISING",
-        "purposes": [
-          "THIRD_PARTY_ADVERTISING"
-        ],
-        "dataTypes": [
-          "DEVICE_ID"
-        ],
-        "linked": true,
-        "tracking": true
-      },
-      {
         "category": "ANALYTICS",
         "purposes": [
           "ANALYTICS"
@@ -59,6 +48,17 @@
         ],
         "linked": true,
         "tracking": false
+      },
+      {
+        "category": "ADVERTISING",
+        "purposes": [
+          "THIRD_PARTY_ADVERTISING"
+        ],
+        "dataTypes": [
+          "DEVICE_ID"
+        ],
+        "linked": true,
+        "tracking": true
       }
     ]
   },

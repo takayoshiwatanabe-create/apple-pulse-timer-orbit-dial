@@ -5,6 +5,7 @@ import { useTimer } from "@/hooks/useTimer";
 import { useFlipGesture } from "@/hooks/useFlipGesture";
 import { useAppColors } from "@/hooks/useColorScheme";
 import { useTimerStore } from "@/stores/timerStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { CircularTimer } from "@/components/timer/CircularTimer";
 import { RotaryBezel } from "@/components/timer/RotaryBezel";
 import { HapticButton } from "@/components/ui/HapticButton";
@@ -20,6 +21,7 @@ import {
 export default function TimerScreen() {
   const insets = useSafeAreaInsets();
   const colors = useAppColors();
+  const premiumActive = useSettingsStore((s) => s.premiumActive);
 
   const {
     isRunning,
@@ -150,7 +152,7 @@ export default function TimerScreen() {
           : "Rotate bezel to adjust \u2022 Flip to start"}
       </Text>
 
-      <AdBanner />
+      {!premiumActive && <AdBanner />}
     </View>
   );
 }

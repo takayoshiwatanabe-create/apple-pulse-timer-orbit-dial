@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zerocode.applepulsetimerorbitdial",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "icon": "./assets/app_icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

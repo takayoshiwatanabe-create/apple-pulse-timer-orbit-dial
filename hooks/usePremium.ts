@@ -20,8 +20,11 @@ export function usePremium() {
   const [isIAPReady, setIsIAPReady] = useState(false);
   const [price, setPrice] = useState<string>("¥300");
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const listenerRef = useRef<ReturnType<
+  const purchaseListenerRef = useRef<ReturnType<
     typeof import("react-native-iap").purchaseUpdatedListener
+  > | null>(null);
+  const errorListenerRef = useRef<ReturnType<
+    typeof import("react-native-iap").purchaseErrorListener
   > | null>(null);
 
   const setPremium = useCallback(async () => {
@@ -31,7 +34,8 @@ export function usePremium() {
   useEffect(() => {
     initIAP();
     return () => {
-      listenerRef.current?.remove();
+      purchaseListenerRef.current?.remove();
+      errorListenerRef.current?.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -63,20 +67,42 @@ export function usePremium() {
         console.warn("Transaction flush error:", e);
       }
 
-      // Set up purchase listener
-      if (!listenerRef.current) {
-        listenerRef.current = iapModule.purchaseUpdatedListener(
+      // Set up purchase success listener
+      if (!purchaseListenerRef.current) {
+        purchaseListenerRef.current = iapModule.purchaseUpdatedListener(
           async (purchase) => {
             try {
               if (purchase.productId === PRODUCT_ID) {
                 await iapModule!.finishTransaction({ purchase });
                 await setPremium();
+                Alert.alert(
+                  "購入完了",
+                  "プレミアムが有効になりました。広告なしでお楽しみください！"
+                );
               }
             } catch (e) {
               console.warn("Purchase listener error:", e);
             }
           }
         );
+      }
+
+      // Set up purchase error listener
+      if (!errorListenerRef.current) {
+        errorListenerRef.current = iapModule.purchaseErrorListener((error) => {
+          // User cancellation is not a real error — silently ignore
+          if (
+            error.code === "E_USER_CANCELLED" ||
+            error.responseCode === 1
+          ) {
+            return;
+          }
+          console.warn("Purchase error:", error);
+          Alert.alert(
+            "購入エラー",
+            "購入処理中にエラーが発生しました。しばらく後でお試しください。"
+          );
+        });
       }
 
       // Get product info
@@ -102,8 +128,8 @@ export function usePremium() {
         setIsIAPReady(true);
       }
 
-      // Check if already purchased
-      await restoreInner();
+      // Check if already purchased (silent restore on launch)
+      await restoreInner(false);
     } catch (e) {
       console.warn("IAP init error:", e);
       iapModule = null;
@@ -128,16 +154,43 @@ export function usePremium() {
     return false;
   };
 
-  const restoreInner = async () => {
-    if (!iapModule) return;
+  const restoreInner = async (showAlert: boolean = false): Promise<boolean> => {
+    if (!iapModule) {
+      if (showAlert) {
+        Alert.alert(
+          "復元できません",
+          "App Storeに接続できません。ネットワーク接続を確認してください。"
+        );
+      }
+      return false;
+    }
     try {
       const purchases = await iapModule.getAvailablePurchases();
       const hasPremium = purchases.some((p) => p.productId === PRODUCT_ID);
       if (hasPremium) {
         await setPremium();
+        if (showAlert) {
+          Alert.alert("復元完了", "プレミアムが復元されました。");
+        }
+        return true;
+      } else {
+        if (showAlert) {
+          Alert.alert(
+            "購入履歴なし",
+            "復元可能な購入が見つかりませんでした。"
+          );
+        }
+        return false;
       }
     } catch (e) {
       console.warn("Restore error:", e);
+      if (showAlert) {
+        Alert.alert(
+          "復元エラー",
+          "購入情報の復元中にエラーが発生しました。しばらく後でお試しください。"
+        );
+      }
+      return false;
     }
   };
 
@@ -184,7 +237,7 @@ export function usePremium() {
   }, [isIAPReady, setPremium]);
 
   const restorePurchases = useCallback(async () => {
-    await restoreInner();
+    await restoreInner(true);
   }, []);
 
   return {
